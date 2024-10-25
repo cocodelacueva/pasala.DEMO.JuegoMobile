@@ -3,3 +3,59 @@
     line-height: 12px;
     opacity: 0.8;
 }
+
+.main-header {
+    margin-bottom: 2rem; 
+}
+
+h1 {
+    font-size: 2rem;
+    line-height: 2.1rem;
+    margin-bottom: 1rem;
+    text-transform: uppercase;
+}
+
+h2 {
+    font-size: 1.5rem;
+    line-height: 1.8rem;
+    margin-bottom: 1rem;
+}
+
+ol, ul {
+    font-size: 1rem;
+    line-height: 1.5rem;
+    margin-bottom: 1rem;
+}
+
+.game-wrapper {
+    position: relative;
+    display: flex;
+}
+
+.instrucciones-box {
+    position: relative;
+}
+
+.instrucciones-list {
+    display: block;
+    list-style: square;
+    padding-left: 1.5rem;
+    li {
+        margin-bottom: .3rem;
+    }
+
+    &.hide{
+        display: none;
+    }
+}
+
+.game-section {
+    padding: 0 4rem 0 2rem;
+    margin-bottom: 2rem;
+}
+
+.canva-game-wrapper {
+    width: 360px;
+    height: 640px;
+    border: 1px solid #000;
+}
