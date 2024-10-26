@@ -1,6 +1,5 @@
 //valores constantes
-const widthCanvas = 360;
-const heithCanvas = 600;
+import { widthCanvas, heithCanvas, colors, formations } from './constants.js';
 
 //scores
 let passes = 0;
@@ -10,8 +9,8 @@ let goals = 0;
 let boxText1, boxText2, boxTextEnd;
 
 //variables
-let canvas;
-let ctx;
+let canvas, ctx;
+let currentFormation = '4-4-2';
 
 export default function startGame(gameContainer, listContainer) {
     console.log('Game started');    
@@ -28,10 +27,82 @@ export default function startGame(gameContainer, listContainer) {
     canvas.height = heithCanvas;
     gameContainer.appendChild(canvas);
     
-    //draw field
-    drawFootballField();
+    //draw formations
+    drawGame();
 }
 
+
+
+
+// Dibujar formación
+function drawGame() {
+    const formation = formations[currentFormation];
+    console.log(formation)
+    // Limpiar el canvas
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+    // Dibujar el campo de fútbol
+    drawFootballField();
+
+    // Dibujar los jugadores
+    drawPlayersFormation(formation);
+    
+    // dibujar pelota
+    drawBall(formation);
+}
+
+function drawBall(formation) {
+    
+    if (formation.gk) {
+        let x = formation.gk.x;
+        let y = formation.gk.y;
+        let isRed = true;
+
+        setInterval(() => {
+            ctx.fillStyle = isRed ? colors.red : colors.white;
+            ctx.beginPath();
+            ctx.arc(x, y, 5, 0, 2 * Math.PI);
+            ctx.fill();
+            isRed = !isRed;
+        }, 500);
+    }
+
+}
+
+function drawPlayersFormation(formation) {
+    //recorrer objeto formation
+    for (const player in formation) {
+        if (player === 'gk') {
+            ctx.fillStyle = colors.blue
+        } else {
+            ctx.fillStyle = colors.black
+        }
+        
+        ctx.beginPath();
+        ctx.arc(formation[player].x, formation[player].y, 10, 0, 2 * Math.PI);
+        ctx.fill();
+    }
+
+    drawAdversaryFormation(formation);
+}
+
+// Dibujar formación del adversario
+// por ahora simplemente copia la misma formacion pero invirtiendo las coordenadas
+function drawAdversaryFormation(formation) {
+    //recorrer objeto formation
+    for (const player in formation) {
+        let x = canvas.width - formation[player].x;
+        let y = canvas.height - (formation[player].y);
+        if (player === 'gk') {
+            ctx.fillStyle = colors.blue   
+        } else {
+            ctx.fillStyle = colors.white
+        }
+        ctx.beginPath();
+            ctx.arc(x, y, 10, 0, 2 * Math.PI);
+            ctx.fill();
+    }
+}
 
 // Dibujar el campo de fútbol
 function drawFootballField() {
