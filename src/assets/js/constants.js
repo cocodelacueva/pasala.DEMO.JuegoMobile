@@ -4,10 +4,11 @@ const heithCanvas = 600;
 const rows = 20;
 const cols = 10;
 const radiusPosition = 10;
+const offsetNPC = 10
 
 const colors = {
     black: '#000000',
-    gray: '#eeeeee',
+    gray: '#ccc',
     white: '#FFFFFF',
     green: '#00FF00',
     red: '#FF0000',
@@ -77,4 +78,4 @@ const formations = {
 }
 
 
-export { widthCanvas, heithCanvas, colors, formations, rows, cols, radiusPosition };
+export { widthCanvas, heithCanvas, colors, formations, rows, cols, radiusPosition, offsetNPC };

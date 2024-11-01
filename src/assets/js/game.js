@@ -1,5 +1,5 @@
 //valores constantes
-import { widthCanvas, heithCanvas, colors, formations, rows, cols, radiusPosition } from './constants.js';
+import { widthCanvas, heithCanvas, colors, formations, rows, cols, radiusPosition, offsetNPC } from './constants.js';
 
 let currentFormation = '4-4-2';
 
@@ -30,8 +30,12 @@ export default function startGame(gameContainer, listContainer) {
     canvas.height = heithCanvas;
     gameContainer.appendChild(canvas);
     
-    //draw formations
-    drawGame();
+    //getPositions
+    const formation = formations[currentFormation];
+    getPositions(formation);
+    
+    //updateCanvas
+    updateCanvas(positions);
 
     startToPlay();
 }
@@ -51,7 +55,7 @@ function handleClick(event) {
     const rect = canvas.getBoundingClientRect();
     const x = event.clientX - rect.left;
     const y = event.clientY - rect.top;
-
+    
     const clickedPlayer = positions.players.user.find(player => {
         const dx = x - player.x;
         const dy = y - player.y;
@@ -65,104 +69,70 @@ function handleClick(event) {
     }
 }
 
-//dibuja grilla en la pantalla
-function drawGrid() {
-    const cellWidth = canvas.width / cols;
-    const cellHeight = canvas.height / rows;
 
-    ctx.strokeStyle = colors.gray;
-    ctx.lineWidth = 0.5;
 
-    for (let i = 0; i <= rows; i++) {
-        ctx.beginPath();
-        ctx.moveTo(0, i * cellHeight);
-        ctx.lineTo(canvas.width, i * cellHeight);
-        ctx.stroke();
+//arma las posiciones iniciales de acuerdo a la formacion
+function getPositions(formation) {
+    //recorrer objeto formation
+    for (const player in formation) {
+        positions.players.user.push( { id: player, x: formation[player].x, y: formation[player].y, radius: radiusPosition } );
     }
 
-    for (let j = 0; j <= cols; j++) {
-        ctx.beginPath();
-        ctx.moveTo(j * cellWidth, 0);
-        ctx.lineTo(j * cellWidth, canvas.height);
-        ctx.stroke();
+    for (const player in formation) {
+        let x = canvas.width - formation[player].x;
+        let y = canvas.height - (formation[player].y - offsetNPC);
+        positions.players.npc.push( { id: player, x: x, y: y, radius: radiusPosition } );
     }
+    
+    let x = formation.gk.x;
+    let y = formation.gk.y;
+
+    positions.ball = { x, y, radius: radiusPosition };
 }
 
-// Dibujar formación
-function drawGame() {
-    const formation = formations[currentFormation];
+
+/* 
+ * funciones que dibujan en el canvas
+*/
+function updateCanvas(positions) {
     // Limpiar el canvas
     ctx.clearRect(0, 0, canvas.width, canvas.height);
 
     // Dibujar el campo de fútbol
     drawFootballField();
 
-    // Dibujar los jugadores
-    drawPlayersFormation(formation);
+    // Dibujar la pelota
+    drawBall(positions.ball);
+
     
-    // dibujar pelota
-    drawBall(formation);
-}
 
-function drawBall(formation) {
-    
-    if (formation.gk) {
-        let x = formation.gk.x;
-        let y = formation.gk.y;
-        let isRed = true;
-
-        setInterval(() => {
-            ctx.fillStyle = isRed ? colors.red : colors.white;
-            ctx.beginPath();
-            ctx.arc(x, y, 5, 0, 2 * Math.PI);
-            ctx.fill();
-            isRed = !isRed;
-        }, 500);
-
-        positions.ball = { x, y };
-    }
-
-}
-
-function drawPlayersFormation(formation) {
-    //recorrer objeto formation
-    for (const player in formation) {
-        if (player === 'gk') {
-            ctx.fillStyle = colors.blue
+    for (const player of positions.players.user) {
+        if (player.id === 'gk') {
+            ctx.fillStyle = colors.blue;
         } else {
-            ctx.fillStyle = colors.black
+            ctx.fillStyle = colors.black;
         }
         
         ctx.beginPath();
-        ctx.arc(formation[player].x, formation[player].y, 10, 0, 2 * Math.PI);
+        ctx.arc(player.x, player.y, 10, 0, 2 * Math.PI);
         ctx.fill();
-
-        positions.players.user.push( { id: player, x: formation[player].x, y: formation[player].y, radius: radiusPosition } );
     }
 
-    drawAdversaryFormation(formation);
-
-    drawGrid();
-}
-
-// Dibujar formación del adversario
-// por ahora simplemente copia la misma formacion pero invirtiendo las coordenadas
-function drawAdversaryFormation(formation) {
-    //recorrer objeto formation
-    for (const player in formation) {
-        let x = canvas.width - formation[player].x;
-        let y = canvas.height - (formation[player].y);
-        if (player === 'gk') {
-            ctx.fillStyle = colors.blue   
+    for (const player of positions.players.npc) {
+        if (player.id === 'gk') {
+            ctx.fillStyle = colors.blue;
         } else {
-            ctx.fillStyle = colors.white
+            ctx.fillStyle = colors.white;
         }
+        
         ctx.beginPath();
-        ctx.arc(x, y, 10, 0, 2 * Math.PI);
+        ctx.arc(player.x, player.y, 10, 0, 2 * Math.PI);
         ctx.fill();
-
-        positions.players.user.push( { id: player, x: formation[player].x, y: formation[player].y, radius: radiusPosition } );
     }
+    
+    //dibuja la grilla
+    drawGrid();
+
 }
 
 // Dibujar el campo de fútbol
@@ -196,4 +166,40 @@ function drawFootballField() {
     // Áreas pequeñas
     ctx.strokeRect((canvas.width / 2) - 55, 10, 110, 50);
     ctx.strokeRect((canvas.width / 2) - 55, canvas.height - 60, 110, 50);
+}
+
+function drawBall(coordinates) {
+    let isRed = true;
+
+    setInterval(() => {
+        ctx.fillStyle = isRed ? colors.red : colors.white;
+        ctx.beginPath();
+        ctx.arc(coordinates.x, coordinates.y, 5, 0, 2 * Math.PI);
+        ctx.fill();
+        isRed = !isRed;
+    }, 500);
+    
+}
+
+//dibuja grilla en la pantalla
+function drawGrid() {
+    const cellWidth = canvas.width / cols;
+    const cellHeight = canvas.height / rows;
+
+    ctx.strokeStyle = colors.gray;
+    ctx.lineWidth = 0.5;
+
+    for (let i = 0; i <= rows; i++) {
+        ctx.beginPath();
+        ctx.moveTo(0, i * cellHeight);
+        ctx.lineTo(canvas.width, i * cellHeight);
+        ctx.stroke();
+    }
+
+    for (let j = 0; j <= cols; j++) {
+        ctx.beginPath();
+        ctx.moveTo(j * cellWidth, 0);
+        ctx.lineTo(j * cellWidth, canvas.height);
+        ctx.stroke();
+    }
 }
