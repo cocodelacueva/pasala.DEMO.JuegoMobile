@@ -1,8 +1,13 @@
 //valores constantes
 const widthCanvas = 360;
 const heithCanvas = 600;
+const rows = 20;
+const cols = 10;
+const radiusPosition = 10;
+
 const colors = {
     black: '#000000',
+    gray: '#eeeeee',
     white: '#FFFFFF',
     green: '#00FF00',
     red: '#FF0000',
@@ -72,4 +77,4 @@ const formations = {
 }
 
 
-export { widthCanvas, heithCanvas, colors, formations };
+export { widthCanvas, heithCanvas, colors, formations, rows, cols, radiusPosition };
