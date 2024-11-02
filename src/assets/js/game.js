@@ -8,6 +8,7 @@ let gameStarted = false;
 let passes = 0;
 let goals = 0;
 let playerSelected = null;
+let ballSelected = false;
 
 //carteles
 let boxText1, boxText2, boxTextEnd;
@@ -45,7 +46,6 @@ function startToPlay() {
     gameStarted = true;
     console.log(positions)
 
-
     //detecta clicks en el canvas
     canvas.addEventListener('click', handleClick);
 }
@@ -62,14 +62,96 @@ function handleClick(event) {
         return Math.sqrt(dx * dx + dy * dy) <= player.radius;
     });
 
-    if (clickedPlayer) {
-        console.log(`Jugador ${clickedPlayer.id} fue clickeado`);
+    const clickedBall = isBallClicked(x, y);
+
+    if (clickedBall) {
+        console.log('Pelota seleccionada');
+        ballSelected = true;
+        positions.ball.selected = true;
+        updateCanvas(positions);
+        
+    } else if (clickedPlayer && ballSelected) {
+        // Verificar si hay un jugador contrario en la trayectoria de la pelota
+        const ballPath = { x1: positions.ball.x, y1: positions.ball.y, x2: clickedPlayer.x, y2: clickedPlayer.y };
+        const opponentInPath = positions.players.npc.some(opponent => isPlayerInPath(opponent, ballPath));
+
+        if (opponentInPath) {
+            console.log('Pelota perdida, hay un jugador contrario en la trayectoria');
+            playerSelected = null;
+        } else {
+            // Animar el movimiento de la pelota a la posición del jugador seleccionado
+            animateTargetMovement(positions.ball, clickedPlayer);
+            ballSelected = false;
+            playerSelected = null;
+            moveNPCs();
+            console.log(`Pelota movida a la posición del jugador ${clickedPlayer.id}`);
+        }
+    } else if (clickedPlayer && !playerSelected) {
+        playerSelected = clickedPlayer;
+        updateCanvas(positions);
+        console.log(`Jugador ${clickedPlayer.id} seleccionado`);
+        
+    } else if (playerSelected) {
+        const distance = Math.sqrt((x - playerSelected.x) ** 2 + (y - playerSelected.y) ** 2);
+        const maxDistance = 50; // Distancia máxima permitida para moverse
+
+        if (distance <= maxDistance) {
+            // Animar el movimiento del jugador seleccionado a la posición del clic
+            animateTargetMovement(playerSelected, { x, y });
+            playerSelected = null;
+            moveNPCs();
+            console.log('Jugador movido a la posición del clic');
+        } else {
+            console.log('El jugador está demasiado lejos para moverse a esa posición');
+        }
     } else {
-        console.log('No se hizo clic en ningún jugador');
+        console.log('No se hizo clic en ningún jugador ni en la pelota y no habia nada seleccionado');
     }
 }
 
+function isBallClicked(x, y) {
+    const dx = x - positions.ball.x;
+    const dy = y - positions.ball.y;
+    return Math.sqrt(dx * dx + dy * dy) <= positions.ball.radius;
+}
 
+function animateTargetMovement(element, target) {
+    const dx = target.x - element.x;
+    const dy = target.y - element.y;
+    const steps = 5;
+    let step = 0;
+    const interval = 100; // Intervalo en milisegundos
+
+    function moveTarget() {
+        if (step < steps) {
+            element.x += dx / steps;
+            element.y += dy / steps;
+            updateCanvas(positions);
+            step++;
+            setTimeout(() => {
+                requestAnimationFrame(moveTarget);
+            }, interval);
+        } else {
+            element.x = target.x;
+            element.y = target.y;
+            updateCanvas(positions); 
+        }
+    }
+    
+    requestAnimationFrame(moveTarget);
+}
+
+function isPlayerInPath(player, path) {
+    const { x1, y1, x2, y2 } = path;
+    const dx = x2 - x1;
+    const dy = y2 - y1;
+    const distance = Math.sqrt(dx * dx + dy * dy);
+    const t = ((player.x - x1) * dx + (player.y - y1) * dy) / (distance * distance);
+    const closestX = x1 + t * dx;
+    const closestY = y1 + t * dy;
+    const distToPath = Math.sqrt((player.x - closestX) * (player.x - closestX) + (player.y - closestY) * (player.y - closestY));
+    return distToPath <= player.radius;
+}
 
 //arma las posiciones iniciales de acuerdo a la formacion
 function getPositions(formation) {
@@ -90,6 +172,15 @@ function getPositions(formation) {
     positions.ball = { x, y, radius: radiusPosition };
 }
 
+//mueve a los jugadores de la maquina
+function moveNPCs() {
+    for (const npc of positions.players.npc) {
+        const targetX = Math.random() * widthCanvas;
+        const targetY = Math.random() * heithCanvas;
+        animateTargetMovement(npc, { x: targetX, y: targetY });
+    }
+}
+
 
 /* 
  * funciones que dibujan en el canvas
@@ -101,13 +192,10 @@ function updateCanvas(positions) {
     // Dibujar el campo de fútbol
     drawFootballField();
 
-    // Dibujar la pelota
-    drawBall(positions.ball);
-
-    
-
     for (const player of positions.players.user) {
-        if (player.id === 'gk') {
+        if (player === playerSelected) {
+            ctx.fillStyle = colors.playerSelected;
+        } else if (player.id === 'gk') {
             ctx.fillStyle = colors.blue;
         } else {
             ctx.fillStyle = colors.black;
@@ -130,6 +218,9 @@ function updateCanvas(positions) {
         ctx.fill();
     }
     
+    // Dibujar la pelota
+    drawBall(positions.ball);
+
     //dibuja la grilla
     drawGrid();
 
@@ -171,14 +262,15 @@ function drawFootballField() {
 function drawBall(coordinates) {
     let isRed = true;
 
-    setInterval(() => {
-        ctx.fillStyle = isRed ? colors.red : colors.white;
+    
+        ctx.fillStyle = colors.red;
         ctx.beginPath();
         ctx.arc(coordinates.x, coordinates.y, 5, 0, 2 * Math.PI);
         ctx.fill();
         isRed = !isRed;
-    }, 500);
     
+    
+    //requestAnimationFrame(blinkBall);
 }
 
 //dibuja grilla en la pantalla
