@@ -1,5 +1,5 @@
 //valores constantes
-import { widthCanvas, heithCanvas, colors, formations, rows, cols, radiusPosition, offsetNPC } from './constants.js';
+import { widthCanvas, heightCanvas, colors, formations, rows, cols, radiusPosition, offsetNPC } from './constants.js';
 
 let currentFormation = '4-4-2';
 
@@ -9,12 +9,12 @@ let passes = 0;
 let goals = 0;
 let playerSelected = null;
 let ballSelected = false;
-
+let maxDistanceMoveNPC = 200;
 //carteles
 let boxText1, boxText2, boxTextEnd;
 
 //variables
-let canvas, ctx, positions = { players: {user: [], npc: []}, ball: {} };
+let canvas, ctx, positionsCopy, positions = { players: {user: [], npc: []}, ball: {} };
 
 export default function startGame(gameContainer, listContainer) {
     console.log('Game started'); 
@@ -28,7 +28,7 @@ export default function startGame(gameContainer, listContainer) {
     canvas = document.createElement('canvas');
     ctx = canvas.getContext('2d');
     canvas.width = widthCanvas;
-    canvas.height = heithCanvas;
+    canvas.height = heightCanvas;
     gameContainer.appendChild(canvas);
     
     //getPositions
@@ -83,7 +83,10 @@ function handleClick(event) {
             animateTargetMovement(positions.ball, clickedPlayer);
             ballSelected = false;
             playerSelected = null;
-            moveNPCs();
+            setTimeout(() => {
+                moveNPCs();    
+            }, 500);
+            
             console.log(`Pelota movida a la posición del jugador ${clickedPlayer.id}`);
         }
     } else if (clickedPlayer && !playerSelected) {
@@ -98,8 +101,11 @@ function handleClick(event) {
         if (distance <= maxDistance) {
             // Animar el movimiento del jugador seleccionado a la posición del clic
             animateTargetMovement(playerSelected, { x, y });
-            playerSelected = null;
             moveNPCs();
+            setTimeout(() => {
+                playerSelected = null;    
+            }, 200);
+            
             console.log('Jugador movido a la posición del clic');
         } else {
             console.log('El jugador está demasiado lejos para moverse a esa posición');
@@ -170,14 +176,63 @@ function getPositions(formation) {
     let y = formation.gk.y;
 
     positions.ball = { x, y, radius: radiusPosition };
+
+    positionsCopy = JSON.parse(JSON.stringify(positions));
 }
 
-//mueve a los jugadores de la maquina
+//Inteligencia artificial de los NPC
 function moveNPCs() {
-    for (const npc of positions.players.npc) {
-        const targetX = Math.random() * widthCanvas;
-        const targetY = Math.random() * heithCanvas;
-        animateTargetMovement(npc, { x: targetX, y: targetY });
+console.log('Moviendo NPc');
+    //determina los 3 jugadores mas cercanos a la pelota
+    let closestPlayers = positions.players.npc.map(npc => {
+        const dx = positions.ball.x - npc.x;
+        const dy = positions.ball.y - npc.y;
+        const distance = Math.sqrt(dx * dx + dy * dy);
+        return { player: npc, distance };
+    }).sort((a, b) => a.distance - b.distance).slice(0, 3);
+    
+    //vuelve a los demás jugadores a la posicion original positionsCopy
+    moveNPCsToOriginalPosition(closestPlayers.map(player => player.player));
+ 
+    //movimiento de los jugadores
+    for (const { player } of closestPlayers) {
+        
+        const dx = positions.ball.x - player.x;
+        const dy = positions.ball.y - player.y;
+        const distance = Math.sqrt(dx * dx + dy * dy);
+
+        if (distance < maxDistanceMoveNPC) {
+            const step = 20;
+            const targetX = player.x + (dx / distance) * step;
+            const targetY = player.y + (dy / distance) * step;
+
+            animateTargetMovement(player, { x: targetX, y: targetY });
+        }
+    }
+}
+
+//mueve los jugadores a la posicion original
+function moveNPCsToOriginalPosition(playersToIgnore = []) {
+    console.log(playersToIgnore)
+    for (let index = 0; index < positions.players.npc.length; index++) {
+        const npc = positions.players.npc[index];
+        const npcOriginal = positionsCopy.players.npc[index];
+        
+        if (playersToIgnore.some(player => player === npc)) {
+            console.log('Ignorando jugador');
+            continue;
+        }  
+
+        const dxOriginal = npcOriginal.x - npc.x;
+        const dyOriginal = npcOriginal.y - npc.y;
+        const distanceOriginal = Math.sqrt(dxOriginal * dxOriginal + dyOriginal * dyOriginal);
+        if (distanceOriginal > 1) { // Evitar movimientos innecesarios
+            const step = 20;
+            const targetX = npc.x + (dxOriginal / distanceOriginal) * step;
+            const targetY = npc.y + (dyOriginal / distanceOriginal) * step;
+
+            animateTargetMovement(npc, { x: targetX, y: targetY });
+        }
     }
 }
 
