@@ -7,22 +7,40 @@ let currentFormation = '4-4-2';
 let gameStarted = false;
 let passes = 0;
 let goals = 0;
+let points = 0;
+let dificulty = 1;
 let playerSelected = null;
 let ballSelected = false;
 let maxDistanceMoveNPC = 200;
+let radioPlayerToIntercept = 1.5;
+let incremetoDificultad = 1.5;
+let puntoPorPase = 10;
+
 //carteles
-let boxText1, boxText2, boxTextEnd;
+let boxText1, boxText2, boxTextEnd, pointsText, dificultyText, goalText;
 
 //variables
 let canvas, ctx, positionsCopy, positions = { players: {user: [], npc: []}, ball: {} };
 
-export default function startGame(gameContainer, listContainer) {
+// Definir la posición del arco
+const goal = {
+    x: widthCanvas / 2,
+    y: 0, // Suponiendo que el arco está en la parte superior del canvas
+    width: 100,
+    height: 10
+};
+
+export default function startGame(gameContainer) {
     console.log('Game started'); 
 
     //instrucciones
-    boxText1 = listContainer.querySelector('#inst1');
-    boxText2 = listContainer.querySelector('#inst2');
-    boxTextEnd = listContainer.querySelector('#exit-game');
+    boxText1 = document.querySelector('#inst1');
+    boxText2 = document.querySelector('#inst2');
+    boxTextEnd = document.querySelector('#exit-game');
+    pointsText = document.querySelector('#pointcontainer'); 
+    dificultyText = document.querySelector('#dificultycontainer');
+    goalText = document.querySelector('#goalcontainer');
+    console.log({boxText1, boxText2, boxTextEnd, pointsText, dificultyText, goalText})
 
     //build canvas
     canvas = document.createElement('canvas');
@@ -44,7 +62,9 @@ export default function startGame(gameContainer, listContainer) {
 
 function startToPlay() {
     gameStarted = true;
+    
     console.log(positions)
+    resetPoints();
 
     //detecta clicks en el canvas
     canvas.addEventListener('click', handleClick);
@@ -61,6 +81,7 @@ function handleClick(event) {
         const dy = y - player.y;
         return Math.sqrt(dx * dx + dy * dy) <= player.radius;
     });
+    console.log('clickedPlayer', clickedPlayer);
 
     const clickedBall = isBallClicked(x, y);
 
@@ -74,15 +95,35 @@ function handleClick(event) {
         // Verificar si hay un jugador contrario en la trayectoria de la pelota
         const ballPath = { x1: positions.ball.x, y1: positions.ball.y, x2: clickedPlayer.x, y2: clickedPlayer.y };
         const opponentInPath = positions.players.npc.some(opponent => isPlayerInPath(opponent, ballPath));
-
+        
         if (opponentInPath) {
             console.log('Pelota perdida, hay un jugador contrario en la trayectoria');
             playerSelected = null;
+            //termina el juego
+            endGame();
+            // Dibujar la línea de la pelota
+            ctx.strokeStyle = colors.red;
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.moveTo(positions.ball.x, positions.ball.y);
+            ctx.lineTo(clickedPlayer.x, clickedPlayer.y);
+            ctx.stroke();
+
+            // Dibujar el radio del jugador que intercepta
+            const interceptingPlayer = positions.players.npc.find(opponent => isPlayerInPath(opponent, ballPath));
+            if (interceptingPlayer) {
+                ctx.strokeStyle = colors.red;
+                ctx.lineWidth = 2;
+                ctx.beginPath();
+                ctx.arc(interceptingPlayer.x, interceptingPlayer.y, interceptingPlayer.radius, 0, 2 * Math.PI);
+                ctx.stroke();
+            }
         } else {
             // Animar el movimiento de la pelota a la posición del jugador seleccionado
             animateTargetMovement(positions.ball, clickedPlayer);
             ballSelected = false;
             playerSelected = null;
+            calculatePoints();
             setTimeout(() => {
                 moveNPCs();    
             }, 500);
@@ -110,6 +151,13 @@ function handleClick(event) {
         } else {
             console.log('El jugador está demasiado lejos para moverse a esa posición');
         }
+    } else if (isGoalClicked(x, y)) {
+        // Animar el movimiento de la pelota al arco
+        animateTargetMovement(positions.ball, { x: goal.x, y: goal.y });
+        ballSelected = false;
+        playerSelected = null;
+        calculatePoints(true); // Contar el gol
+        console.log('¡Gol!');
     } else {
         console.log('No se hizo clic en ningún jugador ni en la pelota y no habia nada seleccionado');
     }
@@ -119,6 +167,10 @@ function isBallClicked(x, y) {
     const dx = x - positions.ball.x;
     const dy = y - positions.ball.y;
     return Math.sqrt(dx * dx + dy * dy) <= positions.ball.radius;
+}
+
+function isGoalClicked(x, y) {
+    return x >= goal.x - goal.width / 2 && x <= goal.x + goal.width / 2 && y >= goal.y && y <= goal.y + goal.height;
 }
 
 function animateTargetMovement(element, target) {
@@ -152,11 +204,14 @@ function isPlayerInPath(player, path) {
     const dx = x2 - x1;
     const dy = y2 - y1;
     const distance = Math.sqrt(dx * dx + dy * dy);
+    if (distance === 0) return false;
     const t = ((player.x - x1) * dx + (player.y - y1) * dy) / (distance * distance);
+    if (t < 0 || t > 1) return false; // Ensure the closest point is within the segment
     const closestX = x1 + t * dx;
     const closestY = y1 + t * dy;
     const distToPath = Math.sqrt((player.x - closestX) * (player.x - closestX) + (player.y - closestY) * (player.y - closestY));
-    return distToPath <= player.radius;
+    const expandedRadius = player.radius * radioPlayerToIntercept; // Variable to expand the radius
+    return distToPath <= expandedRadius;
 }
 
 //arma las posiciones iniciales de acuerdo a la formacion
@@ -182,7 +237,6 @@ function getPositions(formation) {
 
 //Inteligencia artificial de los NPC
 function moveNPCs() {
-console.log('Moviendo NPc');
     //determina los 3 jugadores mas cercanos a la pelota
     let closestPlayers = positions.players.npc.map(npc => {
         const dx = positions.ball.x - npc.x;
@@ -213,13 +267,11 @@ console.log('Moviendo NPc');
 
 //mueve los jugadores a la posicion original
 function moveNPCsToOriginalPosition(playersToIgnore = []) {
-    console.log(playersToIgnore)
     for (let index = 0; index < positions.players.npc.length; index++) {
         const npc = positions.players.npc[index];
         const npcOriginal = positionsCopy.players.npc[index];
         
         if (playersToIgnore.some(player => player === npc)) {
-            console.log('Ignorando jugador');
             continue;
         }  
 
@@ -234,6 +286,70 @@ function moveNPCsToOriginalPosition(playersToIgnore = []) {
             animateTargetMovement(npc, { x: targetX, y: targetY });
         }
     }
+}
+
+function calculatePoints (goal=false) {
+    passes++;
+
+    //si los pases son menos de 10 sumo 10 puntos por pase
+    if (passes <= puntoPorPase) {
+        points += puntoPorPase;
+    } else {
+        //si los pases son mas de 10 le resto el 10% 5 puntos por pase
+        const toDiscount = passes * 10 /100;
+        points += (puntoPorPase - toDiscount)
+    }
+
+    if (passes > puntoPorPase) {
+        addDificulty();
+    }
+    
+    //si hay goal sumo 100 puntos
+    if (goal) {
+        goalCount();
+        addDificulty();
+    }
+
+    console.log({passes})
+    console.log({points})
+
+    //actualizo los puntos en pantalla
+    pointsText.innerHTML = points;
+
+    
+}
+
+//si hay un gol los pases vuelven a 0 y se suma el gol
+function goalCount() {
+    goals++;
+    passes = 0;
+    //actualizo los goles en pantalla
+    goalText.innerHTML = goals;
+}
+
+function addDificulty() {
+    console.log('addDificulty');
+    maxDistanceMoveNPC * incremetoDificultad;
+    radioPlayerToIntercept * incremetoDificultad;
+    dificulty++;
+
+    //actualizo dificultad en pantalla
+    dificultyText.innerHTML = dificulty;
+}
+
+function endGame() {
+    gameStarted = false;
+    canvas.removeEventListener('click', handleClick);
+    console.log('Game ended');
+    boxText1.innerHTML = `Pases: ${passes}`;
+    boxText2.innerHTML = `Goles: ${goals}`;
+    boxTextEnd.innerHTML = 'Juego terminado';
+}
+
+function resetPoints() {
+    passes = 0;
+    goals = 0;
+    points = 0;
 }
 
 

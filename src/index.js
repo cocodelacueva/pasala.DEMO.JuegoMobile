@@ -6,9 +6,8 @@ import startGame from './assets/js/game';
 
   if (siteWrapper) {
     const gameContainer = document.querySelector('#canva-game-wrapper');
-    const listContainer = document.querySelector('#instrucciones-box');
     //do
-    startGame(gameContainer, listContainer);
+    startGame(gameContainer);
 
 
   } else {
