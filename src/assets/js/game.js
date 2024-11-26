@@ -30,6 +30,13 @@ const goal = {
     height: 10
 };
 
+// Definir la posición del arquero
+const goalkeeper = {
+    x: goal.x,
+    y: goal.y + 20, // Ajustar según sea necesario
+    radius: 15
+};
+
 export default function startGame(gameContainer) {
     console.log('Game started'); 
 
@@ -152,12 +159,25 @@ function handleClick(event) {
             console.log('El jugador está demasiado lejos para moverse a esa posición');
         }
     } else if (isGoalClicked(x, y)) {
-        // Animar el movimiento de la pelota al arco
-        animateTargetMovement(positions.ball, { x: goal.x, y: goal.y });
-        ballSelected = false;
-        playerSelected = null;
-        calculatePoints(true); // Contar el gol
-        console.log('¡Gol!');
+        console.log('Arco seleccionado');
+        const distanceToGoal = Math.sqrt((positions.ball.x - goal.x) ** 2 + (positions.ball.y - goal.y) ** 2);
+        const maxGoalDistance = 150; // Umbral de distancia para que el arquero intente interceptar
+
+        if (distanceToGoal > maxGoalDistance) {
+             // Actualizar la posición del arquero
+            goalkeeper.x = positions.ball.x;
+            goalkeeper.y = positions.ball.y;
+            // Mover al arquero para interceptar la pelota
+            animateTargetMovement(goalkeeper, { x: positions.ball.x, y: positions.ball.y });
+            console.log('El arquero intercepta la pelota');
+        } else {
+            // Animar el movimiento de la pelota al arco
+            animateTargetMovement(positions.ball, { x: goal.x, y: goal.y });
+            ballSelected = false;
+            playerSelected = null;
+            calculatePoints(true); // Contar el gol
+            console.log('¡Gol!');
+        }
     } else {
         console.log('No se hizo clic en ningún jugador ni en la pelota y no habia nada seleccionado');
     }
@@ -170,7 +190,7 @@ function isBallClicked(x, y) {
 }
 
 function isGoalClicked(x, y) {
-    return x >= goal.x - goal.width / 2 && x <= goal.x + goal.width / 2 && y >= goal.y && y <= goal.y + goal.height;
+    return x >= goal.x - goal.width / 2 && x <= goal.x + goal.width / 2 && y >= goal.y;
 }
 
 function animateTargetMovement(element, target) {
