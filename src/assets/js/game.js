@@ -1,5 +1,5 @@
 //valores constantes
-import { widthCanvas, heightCanvas, colors, formations, rows, cols, radiusPosition, offsetNPC } from './constants.js';
+import { widthCanvas, heightCanvas, colors, formations, rows, cols, radiusPosition, offsetNPC, maxGoalDistance } from './constants.js';
 
 let currentFormation = '4-4-2';
 
@@ -17,7 +17,7 @@ let incremetoDificultad = 1.5;
 let puntoPorPase = 10;
 
 //carteles
-let boxText1, boxText2, boxTextEnd, pointsText, dificultyText, goalText;
+let boxText1, boxTextEnd, pointsText, dificultyText, goalText;
 
 //variables
 let canvas, ctx, positionsCopy, positions = { players: {user: [], npc: []}, ball: {} };
@@ -27,14 +27,7 @@ const goal = {
     x: widthCanvas / 2,
     y: 0, // Suponiendo que el arco está en la parte superior del canvas
     width: 100,
-    height: 10
-};
-
-// Definir la posición del arquero
-const goalkeeper = {
-    x: goal.x,
-    y: goal.y + 20, // Ajustar según sea necesario
-    radius: 15
+    height: 100
 };
 
 export default function startGame(gameContainer) {
@@ -42,12 +35,10 @@ export default function startGame(gameContainer) {
 
     //instrucciones
     boxText1 = document.querySelector('#inst1');
-    boxText2 = document.querySelector('#inst2');
     boxTextEnd = document.querySelector('#exit-game');
     pointsText = document.querySelector('#pointcontainer'); 
     dificultyText = document.querySelector('#dificultycontainer');
     goalText = document.querySelector('#goalcontainer');
-    console.log({boxText1, boxText2, boxTextEnd, pointsText, dificultyText, goalText})
 
     //build canvas
     canvas = document.createElement('canvas');
@@ -59,7 +50,6 @@ export default function startGame(gameContainer) {
     //getPositions
     const formation = formations[currentFormation];
     getPositions(formation);
-    
     //updateCanvas
     updateCanvas(positions);
 
@@ -107,7 +97,7 @@ function handleClick(event) {
             console.log('Pelota perdida, hay un jugador contrario en la trayectoria');
             playerSelected = null;
             //termina el juego
-            endGame();
+            endGame('intercepta');
             // Dibujar la línea de la pelota
             ctx.strokeStyle = colors.red;
             ctx.lineWidth = 2;
@@ -144,7 +134,7 @@ function handleClick(event) {
         
     } else if (playerSelected) {
         const distance = Math.sqrt((x - playerSelected.x) ** 2 + (y - playerSelected.y) ** 2);
-        const maxDistance = 50; // Distancia máxima permitida para moverse
+        const maxDistance = 70; // Distancia máxima permitida para moverse
 
         if (distance <= maxDistance) {
             // Animar el movimiento del jugador seleccionado a la posición del clic
@@ -161,15 +151,21 @@ function handleClick(event) {
     } else if (isGoalClicked(x, y)) {
         console.log('Arco seleccionado');
         const distanceToGoal = Math.sqrt((positions.ball.x - goal.x) ** 2 + (positions.ball.y - goal.y) ** 2);
-        const maxGoalDistance = 150; // Umbral de distancia para que el arquero intente interceptar
+        const _maxGoalDistance = maxGoalDistance; // Umbral de distancia para que el arquero intente interceptar
 
-        if (distanceToGoal > maxGoalDistance) {
+        if (distanceToGoal > _maxGoalDistance) {
              // Actualizar la posición del arquero
-            goalkeeper.x = positions.ball.x;
-            goalkeeper.y = positions.ball.y;
-            // Mover al arquero para interceptar la pelota
-            animateTargetMovement(goalkeeper, { x: positions.ball.x, y: positions.ball.y });
+             positions.players.npc[0].x = positions.ball.x;
+             positions.players.npc[0].y = positions.ball.y;
+            // Dibujar la línea de la pelota hacia el arco
+            ctx.strokeStyle = colors.red;
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.moveTo(positions.ball.x, positions.ball.y);
+            ctx.lineTo(goal.x, goal.y);
+            ctx.stroke();
             console.log('El arquero intercepta la pelota');
+            endGame('arquero');
         } else {
             // Animar el movimiento de la pelota al arco
             animateTargetMovement(positions.ball, { x: goal.x, y: goal.y });
@@ -177,6 +173,7 @@ function handleClick(event) {
             playerSelected = null;
             calculatePoints(true); // Contar el gol
             console.log('¡Gol!');
+            endGame('gol');
         }
     } else {
         console.log('No se hizo clic en ningún jugador ni en la pelota y no habia nada seleccionado');
@@ -190,7 +187,8 @@ function isBallClicked(x, y) {
 }
 
 function isGoalClicked(x, y) {
-    return x >= goal.x - goal.width / 2 && x <= goal.x + goal.width / 2 && y >= goal.y;
+    console.log('arco',goal, x, y)
+    return x >= goal.x - goal.width / 2 && x <= goal.x + goal.width / 2 && y >= goal.y && y <= goal.y + goal.height;
 }
 
 function animateTargetMovement(element, target) {
@@ -330,9 +328,6 @@ function calculatePoints (goal=false) {
         addDificulty();
     }
 
-    console.log({passes})
-    console.log({points})
-
     //actualizo los puntos en pantalla
     pointsText.innerHTML = points;
 
@@ -342,7 +337,7 @@ function calculatePoints (goal=false) {
 //si hay un gol los pases vuelven a 0 y se suma el gol
 function goalCount() {
     goals++;
-    passes = 0;
+    //passes = 0;
     //actualizo los goles en pantalla
     goalText.innerHTML = goals;
 }
@@ -357,13 +352,19 @@ function addDificulty() {
     dificultyText.innerHTML = dificulty;
 }
 
-function endGame() {
+function endGame(type='intercepta') {
     gameStarted = false;
     canvas.removeEventListener('click', handleClick);
     console.log('Game ended');
-    boxText1.innerHTML = `Pases: ${passes}`;
-    boxText2.innerHTML = `Goles: ${goals}`;
-    boxTextEnd.innerHTML = 'Juego terminado';
+    boxText1.innerHTML = `Passes: ${passes}<br>Goals: ${goals}`;
+
+    if (type=='arquero') {
+        boxTextEnd.innerHTML = '<strong>¡You lost!</strong> You are too far away to kick the goal.';
+    }
+    if (type=='gol') {
+        boxTextEnd.innerHTML = '<strong>¡Goal!</strong> Start over.';
+    }
+    boxTextEnd.classList.remove('hide');
 }
 
 function resetPoints() {

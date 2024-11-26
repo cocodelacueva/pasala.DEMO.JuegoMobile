@@ -4,7 +4,8 @@ const heightCanvas = 600;
 const rows = 20;
 const cols = 10;
 const radiusPosition = 10;
-const offsetNPC = 10
+const offsetNPC = 10;
+const maxGoalDistance = 150;
 
 const colors = {
     black: '#000000',
@@ -78,4 +79,4 @@ const formations = {
 }
 
 
-export { widthCanvas, heightCanvas, colors, formations, rows, cols, radiusPosition, offsetNPC };
+export { widthCanvas, heightCanvas, colors, formations, rows, cols, radiusPosition, offsetNPC, maxGoalDistance };
