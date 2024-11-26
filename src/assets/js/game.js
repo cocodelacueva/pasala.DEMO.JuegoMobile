@@ -127,6 +127,10 @@ function handleClick(event) {
             
             console.log(`Pelota movida a la posición del jugador ${clickedPlayer.id}`);
         }
+    } else if (clickedPlayer && playerSelected === clickedPlayer) {
+        playerSelected = null;
+        updateCanvas(positions);
+        console.log(`Jugador ${clickedPlayer.id} deseleccionado`);
     } else if (clickedPlayer && !playerSelected) {
         playerSelected = clickedPlayer;
         updateCanvas(positions);
